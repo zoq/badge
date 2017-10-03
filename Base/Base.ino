@@ -4,7 +4,7 @@
  *
  * Implementation of the base routine.
  */
- 
+
 #include <DigiUSB.h>
 #include <avr/pgmspace.h>
 
@@ -398,7 +398,7 @@ const byte frames[NUM_FRAMES][8] PROGMEM = {
     B00111100,
     B00100100,
     B00100100,
-    B00000000 }, 
+    B00000000 },
   {
     // B
     B00111000,
@@ -528,7 +528,7 @@ const byte frames[NUM_FRAMES][8] PROGMEM = {
     B00000000
   },
   {
-    // N  
+    // N
     B01000100,
     B01000100,
     B01100100,
@@ -825,7 +825,7 @@ void Image(int A, int B)
   uint8_t i;
   for (i = 0; i < 8; i++)
   {
-    displayA[i] = displayA[i] << shift | displayB[i] >> (7 - shift);  
+    displayA[i] = displayA[i] << shift | displayB[i] >> (7 - shift);
   }
 }
 
@@ -863,7 +863,7 @@ void setup()
   message[28] = 'C';
   message[29] = 'K';
   message[30] = '-';
-  
+
   messageLen = 30;
 
   INIT_PORT();
@@ -887,12 +887,12 @@ void setup()
 
   DigiUSB.begin();
 }
- 
+
 void MlpackAnimation()
 {
   Max7219Clear();
   memcpy_P(displayA, frames[66], 8);
-  
+
   uint8_t i;
   for (i = 0; i < 8; i++)
   {
@@ -916,14 +916,14 @@ void loop()
 {
   DigiUSB.println("Waiting for input...");
   int lastRead;
-  
+
   while (true)
   {
     if (DigiUSB.available())
     {
       // Something to read.
       lastRead = DigiUSB.read();
-      usbAvailable = true; 
+      usbAvailable = true;
 
       // Check if beginning of a new message.
       if (reset_message)
@@ -931,19 +931,31 @@ void loop()
         messageLen = 0;
         reset_message = false;
       }
-      
-      if (lastRead == '\n')
+
+      if (lastRead == '\n' || (sizeof(message) - 1 == messageLen))
       {
         reset_message = true;
         textIdxA = 0;
         textIdxB = 1;
 
         // When we get a newline, break out of loop.
-        break; 
+        break;
       }
       else
       {
-        message[messageLen] = char(lastRead);
+        if (char(lastRead) == 's')
+        {
+          message[messageLen] = char(59) + ' ';
+        }
+        else if (char(lastRead) == 'i')
+        {
+          message[messageLen] = char(65) + ' ';
+        }
+        else
+        {
+          message[messageLen] = char(lastRead);
+        }
+
         messageLen++;
       }
     }
@@ -957,8 +969,8 @@ void loop()
         MlpackAnimation();
 
         DigiUSB.delay(5);
-      }      
-  
+      }
+
       if (textIdxB == 11 && frameCounter == 0)
       {
         HeartAnimation();
