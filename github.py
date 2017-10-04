@@ -12,6 +12,7 @@ import sys, time, urllib2, re
 sys.path.append("..")
 from arduino.usbdevice import ArduinoUsbDevice
 
+# Project settings.
 github = "mlpack/mlpack"
 travis = "mlpack"
 branch = "master"
@@ -26,7 +27,8 @@ if __name__ == "__main__":
                                               theDevice.productName,
                                               theDevice.manufacturer)
     except:
-        pass
+        print("Couldn't find device.")
+        sys.exit(0)
 
     # Get travis build status.
     travisURL = "https://api.travis-ci.org/%s/%s.svg?branch=%s" % (travis,
