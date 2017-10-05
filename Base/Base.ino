@@ -746,8 +746,7 @@ const byte frames[NUM_FRAMES][8] PROGMEM = {
     B00011100,
     B00001000,
     B00000000
-  }
-  ,
+  },
   {
     // mlpack 1
     B00000000,
@@ -758,7 +757,7 @@ const byte frames[NUM_FRAMES][8] PROGMEM = {
     B00010000,
     B00000000,
     B00000000
-  }
+  },  
 };
 
 uint8_t shift = 0;
@@ -771,6 +770,7 @@ bool reset_message = true;
 uint8_t frameCounter = 0;
 uint8_t messageLen = 0;
 bool usbAvailable = false;
+bool mode = true;
 
 void SpiSend(uint8_t data)
 {
@@ -911,9 +911,144 @@ void HeartAnimation()
     }
 }
 
+int x = 2; // Ball x coordinate
+int y = 3; // Ball y coordinate
+bool gravity = true; // Makes the ball go up and down
+bool wind = false; // Makes the ball go right and left
+int p1lx = 4;
+int p1rx = 5;
+int p2lx = 1;
+int p2rx = 2;
+
+const byte ballFrame[8] PROGMEM =
+{
+    // space
+    B10000000,
+    B01000000,
+    B00100000,
+    B00010000,
+    B00001000,
+    B00000100,
+    B00000010,
+    B00000001
+ };
+
+const byte playerFrame[8] PROGMEM =
+{
+    // space
+    B11000000,
+    B11000000,
+    B01100000,
+    B00110000,
+    B00011000,
+    B00001100,
+    B00000110,
+    B00000011
+};
+
+void ShowText()
+{
+  // Show animation only if the intial message is not changed.
+  if (!usbAvailable)
+  {
+    if (textIdxA == 0 && frameCounter == 0)
+    {
+      MlpackAnimation();
+      MlpackAnimation();
+  
+      DigiUSB.delay(5);
+    }
+  
+    if (textIdxB == 11 && frameCounter == 0)
+    {
+      HeartAnimation();
+      HeartAnimation();
+  
+      DigiUSB.delay(5);
+    }
+  }
+  
+  // Set the current text.
+  Image(message[textIdxA] - ' ', message[textIdxB] - ' ');
+  
+  // Display current frame.
+  UpdateDisplay();
+  
+  // Update tracking parameter.
+  frameCounter++;
+  shift = (shift + 1) % 7;
+  
+  // Update the index of the upcoming text.
+  if (frameCounter > 6)
+  {
+    textIdxA = (textIdxA + 1) % messageLen;
+    textIdxB = (textIdxB + 1) % messageLen;
+    frameCounter = 0;
+  }
+  
+  DigiUSB.delay(200);
+}
+
+void PlayPingPong()
+{
+  // Clear screen.
+  memcpy_P(displayA, frames[0], 8);
+
+  // Set ball position.
+  displayA[y] = pgm_read_word_near(ballFrame +x);
+
+  // Set player position.
+  displayA[0] = pgm_read_word_near(playerFrame + p1lx + 1);
+  displayA[7] = pgm_read_word_near(playerFrame + p2lx + 1);
+
+  UpdateDisplay();
+  
+  if (y > 5)
+  {
+    if (x == p2rx && y == 6) { gravity = true; }
+    if (x == p2lx && y == 6) { gravity = true; }
+    
+    if (wind == false && x == p2lx) { wind = true; }
+    if (wind == true && x == p2rx) { wind = false; }
+  }
+  
+  if (x < 1) { wind = false; }
+  if (wind == false) { x++; }
+  if (x > 7) { wind = true; x--; }
+  if (wind == true) { x--; }
+ 
+  if (gravity == false) { y++; }
+  if (gravity == true) { y--; }
+
+  if (y == -1 || y == 8)
+  {
+    delay(100);
+
+    x = 2; // Ball x coordinate
+    y = 3; // Ball y coordinate
+    gravity = true; // Makes the ball go up and down
+    wind = false; // Makes the ball go right and left
+    p1lx = 4;
+    p1rx = 5;
+    p2lx = 1;
+    p2rx = 2;
+
+    Max7219Clear();
+  }
+  
+  if (y < 2)
+  {
+    if (x == p1rx && y == 1) { gravity = false; }
+    if (x == p1lx && y == 1) { gravity = false; }
+    if (wind == false && x == p1lx) { wind = true; }
+    if (wind == true && x == p1rx) { wind = false; }
+  }
+  
+  DigiUSB.delay(200);
+}
 
 void loop()
-{
+{  
   DigiUSB.println("Waiting for input...");
   int lastRead;
 
@@ -943,7 +1078,37 @@ void loop()
       }
       else
       {
-        if (char(lastRead) == 's')
+        if (char(lastRead) == 'p')
+        {
+          // Start new game.
+          mode = false;
+          break;
+        }
+        else if (!mode && char(lastRead) == 'a')
+        {
+          p1lx--;
+          p1rx--;
+          break;
+        }
+        else if (!mode && char(lastRead) == 'd')
+        {
+          p1lx++;
+          p1rx++;
+          break;
+        }
+        else if (!mode && char(lastRead) == 'j')
+        {
+          p2lx--;
+          p2rx--;
+          break;
+        }
+        else if (!mode && char(lastRead) == 'l')
+        {
+          p2lx++;
+          p2rx++;
+          break;
+        }
+        else if (char(lastRead) == 's')
         {
           message[messageLen] = char(59) + ' ';
         }
@@ -960,45 +1125,14 @@ void loop()
       }
     }
 
-    // Show animation only if the intial message is not changed.
-    if (!usbAvailable)
+    if (mode)
     {
-      if (textIdxA == 0 && frameCounter == 0)
-      {
-        MlpackAnimation();
-        MlpackAnimation();
-
-        DigiUSB.delay(5);
-      }
-
-      if (textIdxB == 11 && frameCounter == 0)
-      {
-        HeartAnimation();
-        HeartAnimation();
-
-        DigiUSB.delay(5);
-      }
+      ShowText();
     }
-
-    // Set the current text.
-    Image(message[textIdxA] - ' ', message[textIdxB] - ' ');
-
-    // Display current frame.
-    UpdateDisplay();
-
-    // Update tracking parameter.
-    frameCounter++;
-    shift = (shift + 1) % 7;
-
-    // Update the index of the upcoming text.
-    if (frameCounter > 6)
+    else
     {
-      textIdxA = (textIdxA + 1) % messageLen;
-      textIdxB = (textIdxB + 1) % messageLen;
-      frameCounter = 0;
+      PlayPingPong();
     }
-
-    DigiUSB.delay(200);
   }
 }
 
